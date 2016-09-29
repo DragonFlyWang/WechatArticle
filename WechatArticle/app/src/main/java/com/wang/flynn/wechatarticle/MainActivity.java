@@ -1,8 +1,10 @@
 package com.wang.flynn.wechatarticle;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v7.widget.LinearLayoutCompat;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -12,17 +14,38 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.os.StrictMode;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
-    private String json = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+                .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork()
+                .penaltyLog()
+                .build());
+        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects()
+                .detectLeakedClosableObjects()
+                .penaltyLog()
+                .penaltyDeath()
+                .build());
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        LinearLayout articleList = (LinearLayout) findViewById(R.id.article_list);
         setSupportActionBar(toolbar);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -43,16 +66,22 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        String json = GetArticleList.getResponse();
+        //String json = ArticleAccess.getArticleList();
+        json = json.substring(38);
+        json = json.substring(0, json.length() - 49);
+        json = json.replaceAll(",\"mark\":\"\"", "");
+        List<Article> articles = new ArrayList<>();
+        if (json == null) {
 
-        new Thread() {
-            @Override
-            public void run() {
-                json = GetArticleList.getResponse();
+        } else {
+            try {
+                articles = ArticleJsonAnalyze.getArticles(json);
+                showArticleList(articleList, articles);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-        }.start();
-        TextView test = (TextView) this.findViewById(R.id.test_tv);
-        test.setText(json);
-
+        }
     }
 
     @Override
@@ -106,5 +135,30 @@ public class MainActivity extends AppCompatActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
+    }
+
+    private void showArticleList(LinearLayout linearLayout, List<Article> list) {
+        for (final Article article: list) {
+            String id = article.getId();
+            String title = article.getTitle();
+            String source = article.getSource();
+            String firstImage = article.getFirstImage();
+            //String mark = article.getMark();
+            final String url = article.getUrl();
+
+            Button item = new Button(this);
+            item.setText(title);
+            linearLayout.addView(item);
+
+            item.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent();
+                    intent.setClass(MainActivity.this, ArticleActivity.class);
+                    intent.putExtra("url", url);
+                    startActivity(intent);
+                }
+            });
+        }
     }
 }
